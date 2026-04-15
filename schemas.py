@@ -85,6 +85,7 @@ class PedidoClienteOut(BaseModel):
     cliente_nombre: str
     cliente_comision: Decimal
     estado_pago: str
+    token_publico: Optional[str] = None
     items: List[ItemOut] = []
     pagos: List[PagoOut] = []
     # calculados

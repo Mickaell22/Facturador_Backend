@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import Column, Integer, String, Numeric, Boolean, Date, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -45,6 +46,7 @@ class PedidoCliente(Base):
     pedido_id = Column(Integer, ForeignKey("pedidos.id", ondelete="CASCADE"), nullable=False)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     estado_pago = Column(String(20), default="PENDIENTE")  # PAGADO / PENDIENTE
+    token_publico = Column(String(36), unique=True, default=lambda: str(uuid4()))
 
     __table_args__ = (UniqueConstraint("pedido_id", "cliente_id", name="uq_pedido_cliente"),)
 

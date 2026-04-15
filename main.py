@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
-from routers import clientes, items, pagos, pedidos, stats
+from routers import clientes, items, pagos, pedidos, publico, stats
 from routers.auth import get_current_user, router as auth_router
 
 Base.metadata.create_all(bind=engine)
@@ -17,8 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auth sin proteccion (es el endpoint de login/callback)
+# Sin proteccion: login/callback y facturas publicas
 app.include_router(auth_router)
+app.include_router(publico.router)
 
 # Todos los demas requieren JWT valido
 _auth = [Depends(get_current_user)]

@@ -27,6 +27,7 @@ def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
         cliente_nombre=pc.cliente.nombre,
         cliente_comision=comision_unit,
         estado_pago=estado_pago,
+        token_publico=pc.token_publico,
         items=pc.items,
         pagos=pc.pagos,
         subtotal=subtotal,
