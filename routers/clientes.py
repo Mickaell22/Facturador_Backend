@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from database import get_db
-from models import Cliente, ClienteAlias
+from models import Cliente, ClienteAlias, PedidoCliente
 from schemas import ClienteCreate, ClienteUpdate, ClienteOut, AliasBase
 
 router = APIRouter(prefix="/clientes", tags=["clientes"])
@@ -62,6 +62,18 @@ def eliminar_cliente(cliente_id: int, db: Session = Depends(get_db)):
     cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    total_pedidos = (
+        db.query(PedidoCliente)
+        .filter(PedidoCliente.cliente_id == cliente_id)
+        .count()
+    )
+    if total_pedidos > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede eliminar: {cliente.nombre} tiene {total_pedidos} pedido(s) asociado(s). Elimina primero los pedidos.",
+        )
+
     db.delete(cliente)
     db.commit()
 

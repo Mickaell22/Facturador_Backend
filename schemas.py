@@ -123,4 +123,5 @@ class PedidoListOut(BaseModel):
     notas: Optional[str]
     total_clientes: int = 0
     total_pendientes: int = 0
+    clientes_nombres: List[str] = []
     model_config = {"from_attributes": True}

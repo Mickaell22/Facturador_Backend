@@ -39,13 +39,19 @@ def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
 
 @router.get("/", response_model=List[PedidoListOut])
 def listar_pedidos(db: Session = Depends(get_db)):
-    pedidos = db.query(Pedido).order_by(Pedido.fecha.desc()).all()
+    pedidos = (
+        db.query(Pedido)
+        .options(joinedload(Pedido.pedido_clientes).joinedload(PedidoCliente.cliente))
+        .order_by(Pedido.fecha.desc())
+        .all()
+    )
     result = []
     for p in pedidos:
         total_clientes = len(p.pedido_clientes)
         total_pendientes = sum(
             1 for pc in p.pedido_clientes if pc.estado_pago == "PENDIENTE"
         )
+        clientes_nombres = [pc.cliente.nombre for pc in p.pedido_clientes if pc.cliente]
         result.append(PedidoListOut(
             id=p.id,
             numero=p.numero,
@@ -53,6 +59,7 @@ def listar_pedidos(db: Session = Depends(get_db)):
             notas=p.notas,
             total_clientes=total_clientes,
             total_pendientes=total_pendientes,
+            clientes_nombres=clientes_nombres,
         ))
     return result
 
