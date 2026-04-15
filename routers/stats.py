@@ -12,11 +12,11 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 
 def _calcular_saldo(pc: PedidoCliente) -> Decimal:
     comision_unit = Decimal(str(pc.cliente.comision_por_item))
-    items_llegados = [i for i in pc.items if i.llegado]
+    items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
     subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
     comision = Decimal(len(items_llegados)) * comision_unit
     total = subtotal + comision
-    total_pagado = sum(Decimal(str(p.monto)) for p in pc.pagos)
+    total_pagado = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
     return total - total_pagado
 
 
@@ -33,6 +33,7 @@ def dashboard_stats(db: Session = Depends(get_db)):
             selectinload(PedidoCliente.items),
             selectinload(PedidoCliente.pagos),
         )
+        .filter(PedidoCliente.deleted_at.is_(None))
         .all()
     )
 
@@ -69,7 +70,7 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
             selectinload(PedidoCliente.items),
             selectinload(PedidoCliente.pagos),
         )
-        .filter(PedidoCliente.cliente_id == cliente_id)
+        .filter(PedidoCliente.cliente_id == cliente_id, PedidoCliente.deleted_at.is_(None))
         .order_by(Pedido.fecha.desc())
         .all()
     )
@@ -81,11 +82,11 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
     historial = []
 
     for pc in pedido_clientes:
-        items_llegados = [i for i in pc.items if i.llegado]
+        items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
         subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
         comision = Decimal(len(items_llegados)) * comision_unit
         total = subtotal + comision
-        pagado = sum(Decimal(str(p.monto)) for p in pc.pagos)
+        pagado = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
         saldo = total - pagado
 
         total_gastado += total

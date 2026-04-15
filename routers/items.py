@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from typing import List
+
 from database import get_db
 from models import Item, PedidoCliente
 from schemas import ItemCreate, ItemUpdate, ItemOut
@@ -10,7 +13,9 @@ router = APIRouter(prefix="/pedido-clientes", tags=["items"])
 
 
 def _get_pc(pc_id: int, db: Session) -> PedidoCliente:
-    pc = db.query(PedidoCliente).filter(PedidoCliente.id == pc_id).first()
+    pc = db.query(PedidoCliente).filter(
+        PedidoCliente.id == pc_id, PedidoCliente.deleted_at.is_(None)
+    ).first()
     if not pc:
         raise HTTPException(status_code=404, detail="Relación pedido-cliente no encontrada")
     return pc
@@ -19,7 +24,12 @@ def _get_pc(pc_id: int, db: Session) -> PedidoCliente:
 @router.get("/{pc_id}/items", response_model=List[ItemOut])
 def listar_items(pc_id: int, db: Session = Depends(get_db)):
     _get_pc(pc_id, db)
-    return db.query(Item).filter(Item.pedido_cliente_id == pc_id).order_by(Item.numero).all()
+    return (
+        db.query(Item)
+        .filter(Item.pedido_cliente_id == pc_id, Item.deleted_at.is_(None))
+        .order_by(Item.numero)
+        .all()
+    )
 
 
 @router.post("/{pc_id}/items", response_model=ItemOut, status_code=status.HTTP_201_CREATED)
@@ -34,7 +44,11 @@ def crear_item(pc_id: int, data: ItemCreate, db: Session = Depends(get_db)):
 
 @router.put("/{pc_id}/items/{item_id}", response_model=ItemOut)
 def actualizar_item(pc_id: int, item_id: int, data: ItemUpdate, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id, Item.pedido_cliente_id == pc_id).first()
+    item = db.query(Item).filter(
+        Item.id == item_id,
+        Item.pedido_cliente_id == pc_id,
+        Item.deleted_at.is_(None),
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item no encontrado")
 
@@ -48,10 +62,14 @@ def actualizar_item(pc_id: int, item_id: int, data: ItemUpdate, db: Session = De
 
 @router.delete("/{pc_id}/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_item(pc_id: int, item_id: int, db: Session = Depends(get_db)):
-    item = db.query(Item).filter(Item.id == item_id, Item.pedido_cliente_id == pc_id).first()
+    item = db.query(Item).filter(
+        Item.id == item_id,
+        Item.pedido_cliente_id == pc_id,
+        Item.deleted_at.is_(None),
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item no encontrado")
-    db.delete(item)
+    item.deleted_at = datetime.now(timezone.utc)
     db.commit()
 
 
@@ -62,7 +80,11 @@ async def subir_imagen_item(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    item = db.query(Item).filter(Item.id == item_id, Item.pedido_cliente_id == pc_id).first()
+    item = db.query(Item).filter(
+        Item.id == item_id,
+        Item.pedido_cliente_id == pc_id,
+        Item.deleted_at.is_(None),
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item no encontrado")
 

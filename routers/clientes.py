@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+
 from database import get_db
 from models import Cliente, ClienteAlias, PedidoCliente
 from schemas import ClienteCreate, ClienteUpdate, ClienteOut, AliasBase
@@ -10,12 +13,19 @@ router = APIRouter(prefix="/clientes", tags=["clientes"])
 
 @router.get("/", response_model=List[ClienteOut])
 def listar_clientes(db: Session = Depends(get_db)):
-    return db.query(Cliente).order_by(Cliente.nombre).all()
+    return (
+        db.query(Cliente)
+        .filter(Cliente.deleted_at.is_(None))
+        .order_by(Cliente.nombre)
+        .all()
+    )
 
 
 @router.get("/{cliente_id}", response_model=ClienteOut)
 def obtener_cliente(cliente_id: int, db: Session = Depends(get_db)):
-    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    cliente = db.query(Cliente).filter(
+        Cliente.id == cliente_id, Cliente.deleted_at.is_(None)
+    ).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return cliente
@@ -23,7 +33,9 @@ def obtener_cliente(cliente_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
 def crear_cliente(data: ClienteCreate, db: Session = Depends(get_db)):
-    existente = db.query(Cliente).filter(Cliente.nombre == data.nombre).first()
+    existente = db.query(Cliente).filter(
+        Cliente.nombre == data.nombre, Cliente.deleted_at.is_(None)
+    ).first()
     if existente:
         raise HTTPException(status_code=400, detail="Ya existe un cliente con ese nombre")
 
@@ -43,7 +55,9 @@ def crear_cliente(data: ClienteCreate, db: Session = Depends(get_db)):
 
 @router.put("/{cliente_id}", response_model=ClienteOut)
 def actualizar_cliente(cliente_id: int, data: ClienteUpdate, db: Session = Depends(get_db)):
-    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    cliente = db.query(Cliente).filter(
+        Cliente.id == cliente_id, Cliente.deleted_at.is_(None)
+    ).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
@@ -59,28 +73,31 @@ def actualizar_cliente(cliente_id: int, data: ClienteUpdate, db: Session = Depen
 
 @router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_cliente(cliente_id: int, db: Session = Depends(get_db)):
-    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    cliente = db.query(Cliente).filter(
+        Cliente.id == cliente_id, Cliente.deleted_at.is_(None)
+    ).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    total_pedidos = (
-        db.query(PedidoCliente)
-        .filter(PedidoCliente.cliente_id == cliente_id)
-        .count()
-    )
+    total_pedidos = db.query(PedidoCliente).filter(
+        PedidoCliente.cliente_id == cliente_id,
+        PedidoCliente.deleted_at.is_(None),
+    ).count()
     if total_pedidos > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"No se puede eliminar: {cliente.nombre} tiene {total_pedidos} pedido(s) asociado(s). Elimina primero los pedidos.",
+            detail=f"No se puede eliminar: {cliente.nombre} tiene {total_pedidos} pedido(s) asociado(s).",
         )
 
-    db.delete(cliente)
+    cliente.deleted_at = datetime.now(timezone.utc)
     db.commit()
 
 
 @router.post("/{cliente_id}/aliases", response_model=ClienteOut)
 def agregar_alias(cliente_id: int, data: AliasBase, db: Session = Depends(get_db)):
-    cliente = db.query(Cliente).filter(Cliente.id == cliente_id).first()
+    cliente = db.query(Cliente).filter(
+        Cliente.id == cliente_id, Cliente.deleted_at.is_(None)
+    ).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
@@ -98,7 +115,7 @@ def agregar_alias(cliente_id: int, data: AliasBase, db: Session = Depends(get_db
 def eliminar_alias(cliente_id: int, alias_id: int, db: Session = Depends(get_db)):
     alias = db.query(ClienteAlias).filter(
         ClienteAlias.id == alias_id,
-        ClienteAlias.cliente_id == cliente_id
+        ClienteAlias.cliente_id == cliente_id,
     ).first()
     if not alias:
         raise HTTPException(status_code=404, detail="Alias no encontrado")

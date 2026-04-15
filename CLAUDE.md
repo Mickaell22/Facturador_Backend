@@ -6,6 +6,9 @@
 - SQLAlchemy 2.0 (ORM)
 - PostgreSQL (Railway)
 - Cloudinary (imagenes)
+- Alembic (migraciones de BD)
+- python-jose (JWT)
+- httpx (Google OAuth)
 
 ## Estructura
 ```
@@ -16,44 +19,57 @@ backend/
 ├── schemas.py           # esquemas Pydantic (request/response)
 ├── Procfile             # comando de inicio para Railway
 ├── requirements.txt
+├── alembic.ini          # configuracion de migraciones
+├── alembic/
+│   ├── env.py           # usa DATABASE_URL del .env, importa Base y models
+│   └── versions/        # archivos de migracion generados
 ├── .env                 # credenciales locales (no se sube)
 ├── .env.example         # plantilla sin valores reales
 ├── routers/
-│   ├── clientes.py      # CRUD clientes + aliases
+│   ├── auth.py          # Google OAuth + JWT + get_current_user dependency
+│   ├── clientes.py      # CRUD clientes + aliases (delete protegido si tiene pedidos)
 │   ├── pedidos.py       # CRUD pedidos + agregar/quitar clientes
 │   ├── items.py         # CRUD items + subida de imagen
 │   ├── pagos.py         # CRUD pagos + subida de comprobante
-│   └── stats.py         # estadisticas dashboard + historial por cliente
+│   ├── stats.py         # estadisticas dashboard + historial por cliente
+│   └── publico.py       # factura publica por token (sin auth)
 └── utils/
     └── cloudinary_helper.py  # upload_image(), delete_image()
 ```
 
 ## Endpoints disponibles
 
-### Clientes
-- GET/POST `/clientes`
-- GET/PUT/DELETE `/clientes/{id}`
-- POST/DELETE `/clientes/{id}/aliases`
-- POST `/clientes/{id}/aliases/{alias_id}`
+### Auth (sin JWT requerido)
+- GET `/auth/google/login` — redirige a Google OAuth
+- GET `/auth/google/callback` — recibe code, valida email, emite JWT, redirige al frontend
 
-### Pedidos
+### Clientes (requieren JWT)
+- GET/POST `/clientes`
+- GET/PUT/DELETE `/clientes/{id}` — DELETE bloqueado si tiene pedidos
+- POST `/clientes/{id}/aliases`
+- DELETE `/clientes/{id}/aliases/{alias_id}`
+
+### Pedidos (requieren JWT)
 - GET/POST `/pedidos`
 - GET/PUT/DELETE `/pedidos/{id}`
 - POST/DELETE `/pedidos/{id}/clientes/{cliente_id}`
 
-### Items (por pedido-cliente)
+### Items (requieren JWT)
 - GET/POST `/pedido-clientes/{pc_id}/items`
 - PUT/DELETE `/pedido-clientes/{pc_id}/items/{item_id}`
 - POST `/pedido-clientes/{pc_id}/items/{item_id}/imagen`
 
-### Pagos (por pedido-cliente)
+### Pagos (requieren JWT)
 - GET/POST `/pedido-clientes/{pc_id}/pagos`
 - DELETE `/pedido-clientes/{pc_id}/pagos/{pago_id}`
 - POST `/pedido-clientes/{pc_id}/pagos/{pago_id}/comprobante`
 
-### Stats
-- GET `/stats/dashboard` — metricas generales (pedidos, clientes, cobrado, pendiente)
-- GET `/stats/clientes/{id}` — historial completo de un cliente con totales
+### Stats (requieren JWT)
+- GET `/stats/dashboard` — metricas generales
+- GET `/stats/clientes/{id}` — historial completo de un cliente
+
+### Publico (sin JWT)
+- GET `/public/factura/{token}` — datos de factura por token_publico
 
 ## Variables de entorno requeridas
 ```
@@ -61,6 +77,12 @@ DATABASE_URL
 CLOUDINARY_CLOUD_NAME
 CLOUDINARY_API_KEY
 CLOUDINARY_API_SECRET
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_REDIRECT_URI        # http://localhost:8000/auth/google/callback (dev)
+JWT_SECRET                 # string largo y aleatorio
+ALLOWED_EMAIL              # unico correo autorizado
+FRONTEND_URL               # http://localhost:5173 (dev)
 ```
 
 ## Correr localmente
@@ -68,13 +90,27 @@ CLOUDINARY_API_SECRET
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --port 8000
 ```
 Documentacion en: http://localhost:8000/docs
 
+## Migraciones con Alembic
+```bash
+# Ver estado actual
+alembic current
+
+# Generar migracion automatica al cambiar models.py
+alembic revision --autogenerate -m "descripcion"
+
+# Aplicar migraciones pendientes
+alembic upgrade head
+```
+
 ## Convenciones
 - Calculos financieros siempre con Decimal, nunca float
+- Queries con colecciones usan selectinload (evita producto cartesiano de joinedload)
 - Imagenes de productos → Cloudinary folder: facturador/productos
 - Comprobantes de pago → Cloudinary folder: facturador/comprobantes
 - Los errores usan HTTPException con codigos estandar
-- La funcion _calcular_saldo() en stats.py y pedidos.py debe mantenerse consistente
+- calcular_totales() en pedidos.py y _calcular_saldo() en stats.py deben mantenerse consistentes
+- El router publico.py NO usa la dependency get_current_user

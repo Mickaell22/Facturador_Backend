@@ -12,6 +12,7 @@ class Cliente(Base):
     nombre = Column(String(100), nullable=False, unique=True)
     comision_por_item = Column(Numeric(10, 2), default=0.50)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     aliases = relationship("ClienteAlias", back_populates="cliente", cascade="all, delete-orphan")
     pedido_clientes = relationship("PedidoCliente", back_populates="cliente")
@@ -35,6 +36,7 @@ class Pedido(Base):
     fecha = Column(Date, nullable=False)
     notas = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     pedido_clientes = relationship("PedidoCliente", back_populates="pedido", cascade="all, delete-orphan")
 
@@ -45,8 +47,9 @@ class PedidoCliente(Base):
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, ForeignKey("pedidos.id", ondelete="CASCADE"), nullable=False)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
-    estado_pago = Column(String(20), default="PENDIENTE")  # PAGADO / PENDIENTE
+    estado_pago = Column(String(20), default="PENDIENTE")
     token_publico = Column(String(36), unique=True, default=lambda: str(uuid4()))
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (UniqueConstraint("pedido_id", "cliente_id", name="uq_pedido_cliente"),)
 
@@ -68,6 +71,7 @@ class Item(Base):
     llegado = Column(Boolean, default=False)
     precio = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     pedido_cliente = relationship("PedidoCliente", back_populates="items")
 
@@ -78,9 +82,10 @@ class Pago(Base):
     id = Column(Integer, primary_key=True, index=True)
     pedido_cliente_id = Column(Integer, ForeignKey("pedido_clientes.id", ondelete="CASCADE"), nullable=False)
     monto = Column(Numeric(10, 2), nullable=False)
-    tipo = Column(String(50), default="transferencia")  # transferencia / efectivo / otro
+    tipo = Column(String(50), default="transferencia")
     comprobante_url = Column(Text, nullable=True)
     fecha = Column(DateTime(timezone=True), server_default=func.now())
     notas = Column(Text, nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     pedido_cliente = relationship("PedidoCliente", back_populates="pagos")

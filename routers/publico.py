@@ -27,11 +27,13 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Enlace no valido")
 
     comision_unit = Decimal(str(pc.cliente.comision_por_item))
-    items_llegados = [i for i in pc.items if i.llegado]
+    items_activos = [i for i in pc.items if i.deleted_at is None]
+    pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
+    items_llegados = [i for i in items_activos if i.llegado]
     subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
     comision = Decimal(len(items_llegados)) * comision_unit
     total = subtotal + comision
-    total_pagado = sum(Decimal(str(p.monto)) for p in pc.pagos)
+    total_pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
     saldo = total - total_pagado
 
     return {
@@ -50,7 +52,7 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
                 "llegado": i.llegado,
                 "numero": i.numero,
             }
-            for i in pc.items
+            for i in items_activos
         ],
         "pagos": [
             {
@@ -60,7 +62,7 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
                 "notas": p.notas,
                 "fecha": p.fecha.isoformat(),
             }
-            for p in pc.pagos
+            for p in pagos_activos
         ],
         "subtotal": float(subtotal),
         "comision": float(comision),
