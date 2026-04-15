@@ -106,6 +106,15 @@ alembic revision --autogenerate -m "descripcion"
 alembic upgrade head
 ```
 
+En Railway el Procfile corre `alembic upgrade head` antes de iniciar uvicorn, por lo que las migraciones se aplican automaticamente en cada deploy. El `create_all` fue eliminado de main.py — Alembic es la unica fuente de verdad del schema.
+
+## Soft delete
+- Las tablas clientes, pedidos, pedido_clientes, items y pagos tienen columna `deleted_at TIMESTAMP`
+- Los endpoints DELETE hacen `deleted_at = now()` en lugar de borrar fisicamente
+- Eliminar pedido o quitar cliente del pedido hace cascade suave sobre sus items y pagos
+- Todos los listados filtran `WHERE deleted_at IS NULL`
+- Los calculos de totales filtran en Python: `[i for i in pc.items if i.deleted_at is None]`
+
 ## Convenciones
 - Calculos financieros siempre con Decimal, nunca float
 - Queries con colecciones usan selectinload (evita producto cartesiano de joinedload)

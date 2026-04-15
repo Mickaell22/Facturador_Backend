@@ -1,11 +1,8 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import Base, engine
 from routers import clientes, items, pagos, pedidos, publico, stats
 from routers.auth import get_current_user, router as auth_router
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Facturador Temu", version="1.0.0")
 
