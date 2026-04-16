@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import clientes, items, pagos, pedidos, publico, stats
 from routers.auth import get_current_user, router as auth_router
 
-app = FastAPI(title="Facturador Temu", version="1.0.0")
+app = FastAPI(title="Facturador Temu", version="1.0.0", redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,
