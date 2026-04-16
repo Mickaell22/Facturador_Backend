@@ -43,7 +43,7 @@ def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
     )
 
 
-@router.get("/", response_model=List[PedidoListOut])
+@router.get("", response_model=List[PedidoListOut])
 def listar_pedidos(db: Session = Depends(get_db)):
     pedidos = (
         db.query(Pedido)
@@ -98,7 +98,7 @@ def obtener_pedido(pedido_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/", response_model=PedidoOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PedidoOut, status_code=status.HTTP_201_CREATED)
 def crear_pedido(data: PedidoCreate, db: Session = Depends(get_db)):
     pedido = Pedido(numero=data.numero, fecha=data.fecha, notas=data.notas)
     db.add(pedido)

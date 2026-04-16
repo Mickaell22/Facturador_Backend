@@ -11,7 +11,7 @@ from schemas import ClienteCreate, ClienteUpdate, ClienteOut, AliasBase
 router = APIRouter(prefix="/clientes", tags=["clientes"])
 
 
-@router.get("/", response_model=List[ClienteOut])
+@router.get("", response_model=List[ClienteOut])
 def listar_clientes(db: Session = Depends(get_db)):
     return (
         db.query(Cliente)
@@ -31,7 +31,7 @@ def obtener_cliente(cliente_id: int, db: Session = Depends(get_db)):
     return cliente
 
 
-@router.post("/", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ClienteOut, status_code=status.HTTP_201_CREATED)
 def crear_cliente(data: ClienteCreate, db: Session = Depends(get_db)):
     existente = db.query(Cliente).filter(
         Cliente.nombre == data.nombre, Cliente.deleted_at.is_(None)
