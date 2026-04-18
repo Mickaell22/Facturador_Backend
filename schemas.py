@@ -38,7 +38,7 @@ class ItemCreate(BaseModel):
     link: Optional[str] = None
     articulo: Optional[str] = None
     precio: Optional[Decimal] = None
-    llegado: Optional[bool] = False
+    llegado: Optional[bool] = True
 
 class ItemUpdate(BaseModel):
     numero: Optional[int] = None

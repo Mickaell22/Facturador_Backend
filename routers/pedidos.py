@@ -60,14 +60,15 @@ def listar_pedidos(db: Session = Depends(get_db)):
     for p in pedidos:
         pcs_activos = [pc for pc in p.pedido_clientes if pc.deleted_at is None]
         total_clientes = len(pcs_activos)
-        total_pendientes = sum(1 for pc in pcs_activos if pc.estado_pago == "PENDIENTE")
         clientes_nombres = [pc.cliente.nombre for pc in pcs_activos if pc.cliente]
 
+        total_pendientes = 0
         total_por_cobrar = Decimal("0")
         total_cobrado = Decimal("0")
         for pc in pcs_activos:
             totales = calcular_totales(pc)
             if totales.saldo > 0:
+                total_pendientes += 1
                 total_por_cobrar += totales.saldo
             total_cobrado += totales.total_pagado
 
