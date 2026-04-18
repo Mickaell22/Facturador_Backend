@@ -47,6 +47,7 @@ class PedidoCliente(Base):
     id = Column(Integer, primary_key=True, index=True)
     pedido_id = Column(Integer, ForeignKey("pedidos.id", ondelete="CASCADE"), nullable=False)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
+    comision_por_item = Column(Numeric(10, 2), nullable=True)
     estado_pago = Column(String(20), default="PENDIENTE")
     token_publico = Column(String(36), unique=True, default=lambda: str(uuid4()))
     deleted_at = Column(DateTime(timezone=True), nullable=True)

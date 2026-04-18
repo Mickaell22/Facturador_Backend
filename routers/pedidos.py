@@ -7,13 +7,13 @@ from decimal import Decimal
 
 from database import get_db
 from models import Pedido, PedidoCliente, Cliente, Item, Pago
-from schemas import PedidoCreate, PedidoUpdate, PedidoOut, PedidoListOut, PedidoClienteOut
+from schemas import PedidoCreate, PedidoUpdate, PedidoOut, PedidoListOut, PedidoClienteOut, PedidoClienteComisionUpdate
 
 router = APIRouter(prefix="/pedidos", tags=["pedidos"])
 
 
 def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
-    comision_unit = Decimal(str(pc.cliente.comision_por_item))
+    comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
     items_llegados = [i for i in items_activos if i.llegado]
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
@@ -178,8 +178,27 @@ def agregar_cliente_a_pedido(pedido_id: int, cliente_id: int, db: Session = Depe
     if existente:
         raise HTTPException(status_code=400, detail="El cliente ya está en este pedido")
 
-    pc = PedidoCliente(pedido_id=pedido_id, cliente_id=cliente_id)
+    pc = PedidoCliente(
+        pedido_id=pedido_id,
+        cliente_id=cliente_id,
+        comision_por_item=cliente.comision_por_item,
+    )
     db.add(pc)
+    db.commit()
+    db.refresh(pc)
+    return calcular_totales(pc)
+
+
+@router.patch("/{pedido_id}/clientes/{cliente_id}/comision", response_model=PedidoClienteOut)
+def actualizar_comision(pedido_id: int, cliente_id: int, data: PedidoClienteComisionUpdate, db: Session = Depends(get_db)):
+    pc = db.query(PedidoCliente).filter(
+        PedidoCliente.pedido_id == pedido_id,
+        PedidoCliente.cliente_id == cliente_id,
+        PedidoCliente.deleted_at.is_(None),
+    ).first()
+    if not pc:
+        raise HTTPException(status_code=404, detail="Relacion no encontrada")
+    pc.comision_por_item = data.comision_por_item
     db.commit()
     db.refresh(pc)
     return calcular_totales(pc)

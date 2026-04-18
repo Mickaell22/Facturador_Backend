@@ -79,6 +79,9 @@ class PagoOut(BaseModel):
 
 
 # ── PedidoCliente ──────────────────────────────────────
+class PedidoClienteComisionUpdate(BaseModel):
+    comision_por_item: Decimal
+
 class PedidoClienteOut(BaseModel):
     id: int
     cliente_id: int
