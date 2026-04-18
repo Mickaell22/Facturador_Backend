@@ -47,7 +47,11 @@ def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
 def listar_pedidos(db: Session = Depends(get_db)):
     pedidos = (
         db.query(Pedido)
-        .options(joinedload(Pedido.pedido_clientes).joinedload(PedidoCliente.cliente))
+        .options(
+            joinedload(Pedido.pedido_clientes).joinedload(PedidoCliente.cliente),
+            joinedload(Pedido.pedido_clientes).joinedload(PedidoCliente.items),
+            joinedload(Pedido.pedido_clientes).joinedload(PedidoCliente.pagos),
+        )
         .filter(Pedido.deleted_at.is_(None))
         .order_by(Pedido.fecha.desc())
         .all()
@@ -58,6 +62,15 @@ def listar_pedidos(db: Session = Depends(get_db)):
         total_clientes = len(pcs_activos)
         total_pendientes = sum(1 for pc in pcs_activos if pc.estado_pago == "PENDIENTE")
         clientes_nombres = [pc.cliente.nombre for pc in pcs_activos if pc.cliente]
+
+        total_por_cobrar = Decimal("0")
+        total_cobrado = Decimal("0")
+        for pc in pcs_activos:
+            totales = calcular_totales(pc)
+            if totales.saldo > 0:
+                total_por_cobrar += totales.saldo
+            total_cobrado += totales.total_pagado
+
         result.append(PedidoListOut(
             id=p.id,
             numero=p.numero,
@@ -66,6 +79,8 @@ def listar_pedidos(db: Session = Depends(get_db)):
             total_clientes=total_clientes,
             total_pendientes=total_pendientes,
             clientes_nombres=clientes_nombres,
+            total_por_cobrar=total_por_cobrar,
+            total_cobrado=total_cobrado,
         ))
     return result
 
