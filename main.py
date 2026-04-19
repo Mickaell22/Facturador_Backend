@@ -3,7 +3,7 @@ import os
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import clientes, items, pagos, pedidos, publico, stats
+from routers import clientes, export, items, pagos, pedidos, publico, stats
 from routers.auth import get_current_user, router as auth_router
 
 app = FastAPI(title="Facturador Temu", version="1.0.0", redirect_slashes=False)
@@ -28,6 +28,7 @@ app.include_router(pedidos.router, dependencies=_auth)
 app.include_router(items.router, dependencies=_auth)
 app.include_router(pagos.router, dependencies=_auth)
 app.include_router(stats.router, dependencies=_auth)
+app.include_router(export.router, dependencies=_auth)
 
 
 @app.get("/")
