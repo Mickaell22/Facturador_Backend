@@ -127,11 +127,17 @@ En Railway el Procfile corre `alembic upgrade head` antes de iniciar uvicorn, po
 - Todos los listados filtran `WHERE deleted_at IS NULL`
 - Los calculos de totales filtran en Python: `[i for i in pc.items if i.deleted_at is None]`
 
+## Comision historica
+- `pedido_clientes.comision_por_item` guarda la comision vigente al momento de agregar el cliente al pedido
+- Todos los calculos DEBEN usar `pc.comision_por_item` (con fallback a `pc.cliente.comision_por_item` si es NULL)
+- NUNCA usar `pc.cliente.comision_por_item` directamente en calculos — eso da valores incorrectos si cambia la comision
+- Afecta: `calcular_totales()` en pedidos.py, `_calcular_saldo()` en stats.py, `historial_cliente()` en stats.py, `factura_publica()` en publico.py
+
 ## Convenciones
 - Calculos financieros siempre con Decimal, nunca float
 - Queries con colecciones usan selectinload (evita producto cartesiano de joinedload)
 - Imagenes de productos → Cloudinary folder: facturador/productos
 - Comprobantes de pago → Cloudinary folder: facturador/comprobantes
 - Los errores usan HTTPException con codigos estandar
-- calcular_totales() en pedidos.py y _calcular_saldo() en stats.py deben mantenerse consistentes
+- calcular_totales() en pedidos.py, _calcular_saldo() en stats.py, historial_cliente() en stats.py y factura_publica() en publico.py deben mantenerse consistentes entre si
 - El router publico.py NO usa la dependency get_current_user

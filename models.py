@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import Column, Integer, String, Numeric, Boolean, Date, DateTime, Text, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Numeric, Boolean, Date, DateTime, Text, ForeignKey, Index, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -52,7 +52,10 @@ class PedidoCliente(Base):
     token_publico = Column(String(36), unique=True, default=lambda: str(uuid4()))
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    __table_args__ = (UniqueConstraint("pedido_id", "cliente_id", name="uq_pedido_cliente"),)
+    __table_args__ = (
+        Index('uq_pedido_cliente_activo', 'pedido_id', 'cliente_id',
+              unique=True, postgresql_where=text('deleted_at IS NULL')),
+    )
 
     pedido = relationship("Pedido", back_populates="pedido_clientes")
     cliente = relationship("Cliente", back_populates="pedido_clientes")
