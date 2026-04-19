@@ -73,6 +73,21 @@ def eliminar_item(pc_id: int, item_id: int, db: Session = Depends(get_db)):
     db.commit()
 
 
+@router.delete("/{pc_id}/items/{item_id}/imagen", response_model=ItemOut)
+def eliminar_imagen_item(pc_id: int, item_id: int, db: Session = Depends(get_db)):
+    item = db.query(Item).filter(
+        Item.id == item_id,
+        Item.pedido_cliente_id == pc_id,
+        Item.deleted_at.is_(None),
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    item.imagen_url = None
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 @router.post("/{pc_id}/items/{item_id}/imagen", response_model=ItemOut)
 async def subir_imagen_item(
     pc_id: int,

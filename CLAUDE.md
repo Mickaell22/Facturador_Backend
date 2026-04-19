@@ -68,6 +68,9 @@ backend/
 - GET `/stats/dashboard` — metricas generales
 - GET `/stats/clientes/{id}` — historial completo de un cliente
 
+### Export (requieren JWT)
+- GET `/pedidos/{id}/export` — descarga Excel del pedido (hoja Total + una hoja por cliente)
+
 ### Publico (sin JWT)
 - GET `/public/factura/{token}` — datos de factura por token_publico
 
@@ -126,6 +129,14 @@ En Railway el Procfile corre `alembic upgrade head` antes de iniciar uvicorn, po
 - Eliminar pedido o quitar cliente del pedido hace cascade suave sobre sus items y pagos
 - Todos los listados filtran `WHERE deleted_at IS NULL`
 - Los calculos de totales filtran en Python: `[i for i in pc.items if i.deleted_at is None]`
+- El unique constraint de `pedido_clientes(pedido_id, cliente_id)` es un indice parcial `WHERE deleted_at IS NULL` (no un UNIQUE constraint simple) — permite quitar y volver a agregar un cliente al mismo pedido
+
+## Export Excel
+- Router: `routers/export.py`, prefijo `/pedidos`
+- Usa `openpyxl` (ya en requirements.txt)
+- Genera un `.xlsx` con hoja "Total" (resumen de todos los clientes) + una hoja por cliente (items, resumen, pagos, saldo)
+- Usa `pc.comision_por_item` historica, igual que el resto de calculos
+- Se sirve como `StreamingResponse` con `Content-Disposition: attachment`
 
 ## Comision historica
 - `pedido_clientes.comision_por_item` guarda la comision vigente al momento de agregar el cliente al pedido
