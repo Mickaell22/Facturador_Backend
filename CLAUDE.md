@@ -85,6 +85,18 @@ ALLOWED_EMAIL              # unico correo autorizado
 FRONTEND_URL               # http://localhost:5173 (dev)
 ```
 
+## Optimizaciones de rendimiento aplicadas
+- Connection pool configurado en `database.py`: `pool_size=5`, `max_overflow=10`, `pool_pre_ping=True`, `pool_recycle=1800`
+- CORS restringido a `FRONTEND_URL` en lugar de `"*"`
+- Uvicorn corre con `--workers 2` para manejar requests concurrentes
+- `alembic upgrade head` removido del Procfile — debe configurarse como **Deploy Command** en Railway dashboard (solo corre en nuevos deploys, no en cold starts)
+
+## Deploy en Railway (serverless)
+- **Deploy Command** (Railway dashboard): `alembic upgrade head`
+- **Start Command** (Procfile): `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2`
+- Recursos: ~512MB RAM, 0.5 vCPU compartida (plan Hobby)
+- Para Always On: cambiar a plan Pro (~$5/mes por servicio)
+
 ## Correr localmente
 ```bash
 python -m venv venv

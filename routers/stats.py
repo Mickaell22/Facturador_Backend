@@ -11,7 +11,7 @@ router = APIRouter(prefix="/stats", tags=["stats"])
 
 
 def _calcular_saldo(pc: PedidoCliente) -> Decimal:
-    comision_unit = Decimal(str(pc.cliente.comision_por_item))
+    comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
     subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
     comision = Decimal(len(items_llegados)) * comision_unit
@@ -75,13 +75,13 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    comision_unit = Decimal(str(cliente.comision_por_item))
     total_gastado = Decimal("0")
     total_pagado_global = Decimal("0")
     total_pendiente_global = Decimal("0")
     historial = []
 
     for pc in pedido_clientes:
+        comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else cliente.comision_por_item))
         items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
         subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
         comision = Decimal(len(items_llegados)) * comision_unit

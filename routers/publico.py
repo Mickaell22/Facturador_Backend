@@ -26,7 +26,7 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
     if not pc:
         raise HTTPException(status_code=404, detail="Enlace no valido")
 
-    comision_unit = Decimal(str(pc.cliente.comision_por_item))
+    comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
     items_llegados = [i for i in items_activos if i.llegado]
