@@ -1,10 +1,10 @@
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, contains_eager, selectinload
 
 from database import get_db
-from models import PedidoCliente
+from models import Cliente, Pedido, PedidoCliente
 
 router = APIRouter(prefix="/public", tags=["publico"])
 
@@ -69,4 +69,69 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
         "total": float(total),
         "total_pagado": float(total_pagado),
         "saldo": float(saldo),
+    }
+
+
+@router.get("/cliente/{token}")
+def historial_cliente_publico(token: str, db: Session = Depends(get_db)):
+    cliente = db.query(Cliente).filter(Cliente.token_publico == token).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Enlace no valido")
+
+    pedido_clientes = (
+        db.query(PedidoCliente)
+        .join(PedidoCliente.pedido)
+        .options(
+            contains_eager(PedidoCliente.pedido),
+            selectinload(PedidoCliente.items),
+            selectinload(PedidoCliente.pagos),
+        )
+        .filter(PedidoCliente.cliente_id == cliente.id, PedidoCliente.deleted_at.is_(None))
+        .order_by(Pedido.fecha.desc())
+        .all()
+    )
+
+    total_gastado = Decimal("0")
+    total_pagado_global = Decimal("0")
+    total_pendiente_global = Decimal("0")
+    historial = []
+
+    for pc in pedido_clientes:
+        comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else cliente.comision_por_item))
+        items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
+        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
+        comision = Decimal(len(items_llegados)) * comision_unit
+        total = subtotal + comision
+        pagado = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
+        saldo = total - pagado
+
+        total_gastado += total
+        total_pagado_global += pagado
+        total_pendiente_global += max(saldo, Decimal("0"))
+
+        historial.append({
+            "pedido_numero": pc.pedido.numero,
+            "pedido_id": pc.pedido.id,
+            "fecha": str(pc.pedido.fecha),
+            "total_items": len([i for i in pc.items if i.deleted_at is None]),
+            "items_llegados": len(items_llegados),
+            "subtotal": float(subtotal),
+            "comision": float(comision),
+            "total": float(total),
+            "pagado": float(pagado),
+            "saldo": float(saldo),
+            "estado_pago": "PAGADO" if saldo <= 0 else "PENDIENTE",
+        })
+
+    return {
+        "cliente": {
+            "nombre": cliente.nombre,
+        },
+        "resumen": {
+            "total_pedidos": len(historial),
+            "total_gastado": float(total_gastado),
+            "total_pagado": float(total_pagado_global),
+            "total_pendiente": float(total_pendiente_global),
+        },
+        "historial": historial,
     }

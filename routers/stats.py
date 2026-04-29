@@ -113,6 +113,7 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
             "id": cliente.id,
             "nombre": cliente.nombre,
             "comision_por_item": float(cliente.comision_por_item),
+            "token_publico": cliente.token_publico,
         },
         "resumen": {
             "total_pedidos": len(historial),

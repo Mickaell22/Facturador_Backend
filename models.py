@@ -11,6 +11,7 @@ class Cliente(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False, unique=True)
     comision_por_item = Column(Numeric(10, 2), default=0.50)
+    token_publico = Column(String(36), unique=True, default=lambda: str(uuid4()))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
