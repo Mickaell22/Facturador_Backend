@@ -2,9 +2,13 @@ import os
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from sqlalchemy.orm import Session
 
+from database import get_db
 from routers import clientes, export, items, pagos, pedidos, publico, stats
 from routers.auth import get_current_user, router as auth_router
+from routers.publico import og_preview
 
 app = FastAPI(title="Facturador", version="1.0.0", redirect_slashes=False)
 
@@ -34,3 +38,8 @@ app.include_router(export.router, dependencies=_auth)
 @app.get("/")
 def root():
     return {"status": "ok", "message": "Facturador API"}
+
+
+@app.get("/p/{token}", response_class=HTMLResponse)
+def og_preview_root(token: str, db: Session = Depends(get_db)):
+    return og_preview(token, db)
