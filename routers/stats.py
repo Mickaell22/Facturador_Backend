@@ -10,16 +10,6 @@ from models import Cliente, Item, Pago, Pedido, PedidoCliente
 router = APIRouter(prefix="/stats", tags=["stats"])
 
 
-def _calcular_saldo(pc: PedidoCliente) -> Decimal:
-    comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
-    items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
-    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-    comision = Decimal(len(items_llegados)) * comision_unit
-    total = subtotal + comision
-    total_pagado = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
-    return total - total_pagado
-
-
 @router.get("/dashboard")
 def dashboard_stats(db: Session = Depends(get_db)):
     total_pedidos = db.query(func.count(Pedido.id)).scalar() or 0
@@ -38,10 +28,23 @@ def dashboard_stats(db: Session = Depends(get_db)):
     )
 
     total_pendiente = Decimal("0")
+    total_general = Decimal("0")
+    total_items = 0
     clientes_con_deuda: set[int] = set()
 
     for pc in pedido_clientes:
-        saldo = _calcular_saldo(pc)
+        comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
+        items_activos = [i for i in pc.items if i.deleted_at is None]
+        items_llegados = [i for i in items_activos if i.llegado]
+        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
+        comision = Decimal(len(items_llegados)) * comision_unit
+        total = subtotal + comision
+        total_pagado_pc = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
+        saldo = total - total_pagado_pc
+
+        total_items += len(items_activos)
+        total_general += total
+
         if saldo > 0:
             total_pendiente += saldo
             clientes_con_deuda.add(pc.cliente_id)
@@ -52,6 +55,8 @@ def dashboard_stats(db: Session = Depends(get_db)):
         "clientes_con_deuda": len(clientes_con_deuda),
         "total_cobrado": float(total_cobrado),
         "total_pendiente": float(total_pendiente),
+        "total_items": total_items,
+        "total_general": float(total_general),
     }
 
 
