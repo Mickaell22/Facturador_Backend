@@ -130,6 +130,7 @@ class PedidoListOut(BaseModel):
     notas: Optional[str]
     total_clientes: int = 0
     total_pendientes: int = 0
+    total_items: int = 0
     clientes_nombres: List[str] = []
     total_por_cobrar: Decimal = Decimal("0")
     total_cobrado: Decimal = Decimal("0")
