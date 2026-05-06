@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from typing import List
 from decimal import Decimal
 
 from database import get_db
 from models import Pedido, PedidoCliente, Cliente, Item, Pago
-from schemas import PedidoCreate, PedidoUpdate, PedidoOut, PedidoListOut, PedidoClienteOut, PedidoClienteComisionUpdate
+from schemas import PedidoCreate, PedidoUpdate, PedidoOut, PedidoListOut, PedidoClienteOut, PedidoClienteComisionUpdate, MoverClienteRequest
 
 router = APIRouter(prefix="/pedidos", tags=["pedidos"])
 
@@ -238,3 +238,94 @@ def quitar_cliente_de_pedido(pedido_id: int, cliente_id: int, db: Session = Depe
         if pago.deleted_at is None:
             pago.deleted_at = now
     db.commit()
+
+
+@router.post("/{pedido_id}/clientes/{cliente_id}/mover", response_model=PedidoClienteOut)
+def mover_cliente_a_pedido(pedido_id: int, cliente_id: int, data: MoverClienteRequest, db: Session = Depends(get_db)):
+    if data.destino_pedido_id == pedido_id:
+        raise HTTPException(status_code=400, detail="El pedido destino debe ser diferente al actual")
+
+    pc_origen = (
+        db.query(PedidoCliente)
+        .options(
+            selectinload(PedidoCliente.items),
+            selectinload(PedidoCliente.pagos),
+            selectinload(PedidoCliente.cliente),
+        )
+        .filter(
+            PedidoCliente.pedido_id == pedido_id,
+            PedidoCliente.cliente_id == cliente_id,
+            PedidoCliente.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not pc_origen:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado en este pedido")
+
+    pedido_destino = db.query(Pedido).filter(
+        Pedido.id == data.destino_pedido_id,
+        Pedido.deleted_at.is_(None),
+    ).first()
+    if not pedido_destino:
+        raise HTTPException(status_code=404, detail="Pedido destino no encontrado")
+
+    existente = db.query(PedidoCliente).filter(
+        PedidoCliente.pedido_id == data.destino_pedido_id,
+        PedidoCliente.cliente_id == cliente_id,
+        PedidoCliente.deleted_at.is_(None),
+    ).first()
+    if existente:
+        raise HTTPException(status_code=400, detail="El cliente ya está en el pedido destino")
+
+    pc_nuevo = PedidoCliente(
+        pedido_id=data.destino_pedido_id,
+        cliente_id=cliente_id,
+        comision_por_item=pc_origen.comision_por_item,
+    )
+    db.add(pc_nuevo)
+    db.flush()
+
+    now = datetime.now(timezone.utc)
+    for item in pc_origen.items:
+        if item.deleted_at is None:
+            db.add(Item(
+                pedido_cliente_id=pc_nuevo.id,
+                numero=item.numero,
+                link=item.link,
+                articulo=item.articulo,
+                imagen_url=item.imagen_url,
+                llegado=item.llegado,
+                precio=item.precio,
+            ))
+
+    for pago in pc_origen.pagos:
+        if pago.deleted_at is None:
+            db.add(Pago(
+                pedido_cliente_id=pc_nuevo.id,
+                monto=pago.monto,
+                tipo=pago.tipo,
+                comprobante_url=pago.comprobante_url,
+                notas=pago.notas,
+            ))
+
+    pc_origen.deleted_at = now
+    for item in pc_origen.items:
+        if item.deleted_at is None:
+            item.deleted_at = now
+    for pago in pc_origen.pagos:
+        if pago.deleted_at is None:
+            pago.deleted_at = now
+
+    db.commit()
+
+    pc_nuevo = (
+        db.query(PedidoCliente)
+        .options(
+            selectinload(PedidoCliente.items),
+            selectinload(PedidoCliente.pagos),
+            selectinload(PedidoCliente.cliente),
+        )
+        .filter(PedidoCliente.id == pc_nuevo.id)
+        .first()
+    )
+    return calcular_totales(pc_nuevo)

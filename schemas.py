@@ -82,6 +82,9 @@ class PagoOut(BaseModel):
 class PedidoClienteComisionUpdate(BaseModel):
     comision_por_item: Decimal
 
+class MoverClienteRequest(BaseModel):
+    destino_pedido_id: int
+
 class PedidoClienteOut(BaseModel):
     id: int
     cliente_id: int
