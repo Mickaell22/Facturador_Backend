@@ -16,7 +16,9 @@ GOOGLE_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback"
 )
 ALLOWED_EMAIL = os.getenv("ALLOWED_EMAIL", "")
-JWT_SECRET = os.getenv("JWT_SECRET", "changeme-reemplaza-esto")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET env var is required — set it in .env")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 JWT_ALGORITHM = "HS256"
