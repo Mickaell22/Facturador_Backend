@@ -141,12 +141,14 @@ def actualizar_pedido(pedido_id: int, data: PedidoUpdate, db: Session = Depends(
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido no encontrado")
 
-    if data.numero is not None:
-        pedido.numero = data.numero
-    if data.fecha is not None:
-        pedido.fecha = data.fecha
-    if data.notas is not None:
-        pedido.notas = data.notas
+    # exclude_unset distingue "campo no enviado" de "campo enviado como null".
+    # Esto permite limpiar notas/numero (enviar null) en vez de ignorarlos.
+    cambios = data.model_dump(exclude_unset=True)
+    if "fecha" in cambios and cambios["fecha"] is None:
+        # fecha es obligatoria: no permitir nulearla
+        del cambios["fecha"]
+    for campo, valor in cambios.items():
+        setattr(pedido, campo, valor)
 
     db.commit()
     db.refresh(pedido)
