@@ -84,6 +84,7 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
     total_pagado_global = Decimal("0")
     total_pendiente_global = Decimal("0")
     historial = []
+    transacciones = []
 
     for pc in pedido_clientes:
         comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else cliente.comision_por_item))
@@ -91,12 +92,26 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
         subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
         comision = Decimal(len(items_llegados)) * comision_unit
         total = subtotal + comision
-        pagado = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
+        pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
+        pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
         saldo = total - pagado
 
         total_gastado += total
         total_pagado_global += pagado
         total_pendiente_global += max(saldo, Decimal("0"))
+
+        for p in pagos_activos:
+            transacciones.append({
+                "pago_id": p.id,
+                "pedido_cliente_id": pc.id,
+                "pedido_id": pc.pedido.id,
+                "pedido_numero": pc.pedido.numero,
+                "fecha": p.fecha.isoformat() if p.fecha else None,
+                "monto": float(p.monto),
+                "tipo": p.tipo,
+                "notas": p.notas,
+                "comprobante_url": p.comprobante_url,
+            })
 
         historial.append({
             "pedido_cliente_id": pc.id,
@@ -113,6 +128,16 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
             "estado_pago": "PAGADO" if saldo <= 0 else "PENDIENTE",
         })
 
+    # Linea de tiempo: todos los pagos de todos los pedidos. El acumulado se
+    # calcula en orden cronologico (total pagado por el cliente hasta ese pago),
+    # pero se devuelve con los mas recientes primero para mostrarlos arriba.
+    transacciones.sort(key=lambda t: (t["fecha"] or "", t["pago_id"]))
+    acumulado = Decimal("0")
+    for t in transacciones:
+        acumulado += Decimal(str(t["monto"]))
+        t["acumulado_pagado"] = float(acumulado)
+    transacciones.reverse()
+
     return {
         "cliente": {
             "id": cliente.id,
@@ -125,6 +150,8 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
             "total_gastado": float(total_gastado),
             "total_pagado": float(total_pagado_global),
             "total_pendiente": float(total_pendiente_global),
+            "total_transacciones": len(transacciones),
         },
         "historial": historial,
+        "transacciones": transacciones,
     }

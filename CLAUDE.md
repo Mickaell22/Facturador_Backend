@@ -66,7 +66,7 @@ backend/
 
 ### Stats (requieren JWT)
 - GET `/stats/dashboard` — metricas generales
-- GET `/stats/clientes/{id}` — historial completo de un cliente
+- GET `/stats/clientes/{id}` — historial completo de un cliente: `historial` (un resumen por pedido) + `transacciones` (todos los pagos de todos los pedidos en orden cronologico, cada uno con `acumulado_pagado` corrido)
 
 ### Export (requieren JWT)
 - GET `/pedidos/{id}/export` — descarga Excel del pedido (hoja Total + una hoja por cliente)
