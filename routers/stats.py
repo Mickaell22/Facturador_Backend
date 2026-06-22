@@ -36,9 +36,9 @@ def dashboard_stats(db: Session = Depends(get_db)):
     for pc in pedido_clientes:
         comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
         items_activos = [i for i in pc.items if i.deleted_at is None]
-        items_llegados = items_a_facturar(items_activos)
-        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-        comision = Decimal(len(items_llegados)) * comision_unit
+        items_facturables = items_a_facturar(items_activos)
+        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+        comision = Decimal(len(items_facturables)) * comision_unit
         total = subtotal + comision
         total_pagado_pc = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
         saldo = total - total_pagado_pc
@@ -89,9 +89,9 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
 
     for pc in pedido_clientes:
         comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else cliente.comision_por_item))
-        items_llegados = items_a_facturar([i for i in pc.items if i.deleted_at is None])
-        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-        comision = Decimal(len(items_llegados)) * comision_unit
+        items_facturables = items_a_facturar([i for i in pc.items if i.deleted_at is None])
+        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+        comision = Decimal(len(items_facturables)) * comision_unit
         total = subtotal + comision
         pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
         pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
@@ -120,7 +120,7 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
             "pedido_numero": pc.pedido.numero,
             "fecha": str(pc.pedido.fecha),
             "total_items": len(pc.items),
-            "items_llegados": len(items_llegados),
+            "items_activos": len(items_facturables),
             "subtotal": float(subtotal),
             "comision": float(comision),
             "total": float(total),

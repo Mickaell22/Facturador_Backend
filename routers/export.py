@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import Pedido, PedidoCliente
-from utils.facturacion import FACTURAR_SOLO_LLEGADOS, items_a_facturar
+from utils.facturacion import items_a_facturar
 
 router = APIRouter(prefix="/pedidos", tags=["export"])
 
@@ -40,14 +40,14 @@ def _estilo_celda(ws, row, col, value, bold=False, bg=None, align="left", number
 def _calcular(pc: PedidoCliente):
     comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
-    items_llegados = items_a_facturar(items_activos)
+    items_facturables = items_a_facturar(items_activos)
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
-    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-    comision = Decimal(len(items_llegados)) * comision_unit
+    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+    comision = Decimal(len(items_facturables)) * comision_unit
     total = subtotal + comision
     pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
     saldo = total - pagado
-    return items_activos, items_llegados, pagos_activos, subtotal, comision, total, pagado, saldo
+    return items_activos, items_facturables, pagos_activos, subtotal, comision, total, pagado, saldo
 
 
 def _hoja_total(wb: Workbook, pedido: Pedido, pcs):
@@ -60,13 +60,13 @@ def _hoja_total(wb: Workbook, pedido: Pedido, pcs):
     resumen_clientes = []
 
     for pc in pcs:
-        items_activos, items_llegados, pagos_activos, subtotal, comision, total, pagado, saldo = _calcular(pc)
+        items_activos, items_facturables, pagos_activos, subtotal, comision, total, pagado, saldo = _calcular(pc)
         total_subtotal += subtotal
         total_comision += comision
         total_pagado += pagado
         resumen_clientes.append({
             "nombre": pc.cliente.nombre,
-            "items": len(items_llegados),
+            "items": len(items_facturables),
             "subtotal": subtotal,
             "comision": comision,
             "total": total,
@@ -89,7 +89,7 @@ def _hoja_total(wb: Workbook, pedido: Pedido, pcs):
     ws["H1"] = "Comision total"
 
     # Fila 2: encabezados
-    headers = ["Num.", "Cliente", "Items llegados", "Subtotal", "Comision", "Total", "Pagado", "Saldo", "Estado"]
+    headers = ["Num.", "Cliente", "Items activos", "Subtotal", "Comision", "Total", "Pagado", "Saldo", "Estado"]
     for col, h in enumerate(headers, 1):
         _estilo_celda(ws, 2, col, h, bold=True, bg=HEADER_BG, align="center")
 
@@ -135,7 +135,7 @@ def _hoja_cliente(wb: Workbook, pc: PedidoCliente):
     nombre = pc.cliente.nombre[:31]  # Excel limita a 31 chars el nombre de hoja
     ws = wb.create_sheet(title=nombre)
 
-    items_activos, items_llegados, pagos_activos, subtotal, comision, total, pagado, saldo = _calcular(pc)
+    items_activos, items_facturables, pagos_activos, subtotal, comision, total, pagado, saldo = _calcular(pc)
 
     # Fila 1: info del cliente
     _estilo_celda(ws, 1, 1, pc.cliente.nombre, bold=True, bg=HEADER_BG)
@@ -144,22 +144,21 @@ def _hoja_cliente(wb: Workbook, pc: PedidoCliente):
     ws.cell(row=1, column=4, value="$/item comision")
 
     # Fila 2: encabezados items
-    headers = ["Num.", "Link", "Articulo", "Llegado", "Precio"]
+    headers = ["Num.", "Link", "Articulo", "Activo", "Precio"]
     for col, h in enumerate(headers, 1):
         _estilo_celda(ws, 2, col, h, bold=True, bg=HEADER_BG, align="center")
 
     # Filas de items
     for i, item in enumerate(items_activos, 1):
         row = i + 2
-        # Con la mecanica de "llego" desactivada se factura todo: cada item cuenta.
-        facturado = item.llegado or not FACTURAR_SOLO_LLEGADOS
-        llegado = "V" if facturado else "X"
-        bg_llegado = PAGADO_BG if facturado else None
+        # Solo los items activos se facturan; los inactivos quedan listados sin precio.
+        activo = "V" if item.activo else "X"
+        bg_activo = PAGADO_BG if item.activo else None
         _estilo_celda(ws, row, 1, item.numero or i, align="center")
         _estilo_celda(ws, row, 2, item.link or "")
         _estilo_celda(ws, row, 3, item.articulo or "")
-        _estilo_celda(ws, row, 4, llegado, bg=bg_llegado, align="center")
-        _estilo_celda(ws, row, 5, float(item.precio or 0) if facturado else "", number_format='#,##0.00')
+        _estilo_celda(ws, row, 4, activo, bg=bg_activo, align="center")
+        _estilo_celda(ws, row, 5, float(item.precio or 0) if item.activo else "", number_format='#,##0.00')
 
     # Filas de resumen
     base = len(items_activos) + 3

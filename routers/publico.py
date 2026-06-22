@@ -36,9 +36,9 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
     comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
-    items_llegados = items_a_facturar(items_activos)
-    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-    comision = Decimal(len(items_llegados)) * comision_unit
+    items_facturables = items_a_facturar(items_activos)
+    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+    comision = Decimal(len(items_facturables)) * comision_unit
     total = subtotal + comision
     total_pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
     saldo = total - total_pagado
@@ -56,7 +56,7 @@ def factura_publica(token: str, db: Session = Depends(get_db)):
                 "link": i.link,
                 "imagen_url": i.imagen_url,
                 "precio": float(i.precio or 0),
-                "llegado": i.llegado,
+                "activo": i.activo,
                 "numero": i.numero,
             }
             for i in items_activos
@@ -105,9 +105,9 @@ def historial_cliente_publico(token: str, db: Session = Depends(get_db)):
 
     for pc in pedido_clientes:
         comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else cliente.comision_por_item))
-        items_llegados = items_a_facturar([i for i in pc.items if i.deleted_at is None])
-        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-        comision = Decimal(len(items_llegados)) * comision_unit
+        items_facturables = items_a_facturar([i for i in pc.items if i.deleted_at is None])
+        subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+        comision = Decimal(len(items_facturables)) * comision_unit
         total = subtotal + comision
         pagado = sum(Decimal(str(p.monto)) for p in pc.pagos if p.deleted_at is None)
         saldo = total - pagado
@@ -121,7 +121,7 @@ def historial_cliente_publico(token: str, db: Session = Depends(get_db)):
             "pedido_id": pc.pedido.id,
             "fecha": str(pc.pedido.fecha),
             "total_items": len([i for i in pc.items if i.deleted_at is None]),
-            "items_llegados": len(items_llegados),
+            "items_activos": len(items_facturables),
             "subtotal": float(subtotal),
             "comision": float(comision),
             "total": float(total),
@@ -165,9 +165,9 @@ def og_preview(token: str, db: Session = Depends(get_db)):
     comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
-    items_llegados = items_a_facturar(items_activos)
-    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-    comision = Decimal(len(items_llegados)) * comision_unit
+    items_facturables = items_a_facturar(items_activos)
+    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+    comision = Decimal(len(items_facturables)) * comision_unit
     total = subtotal + comision
     total_pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
     saldo = total - total_pagado
@@ -176,7 +176,7 @@ def og_preview(token: str, db: Session = Depends(get_db)):
     pedido_num = pc.pedido.numero or pc.pedido.id
     estado_txt = "Pagado" if saldo <= 0 else f"Saldo pendiente: ${float(saldo):.2f}"
     descripcion = html_lib.escape(
-        f"Pedido #{pedido_num} — {len(items_activos)} articulo{'s' if len(items_activos) != 1 else ''} "
+        f"Pedido #{pedido_num} — {len(items_facturables)} articulo{'s' if len(items_facturables) != 1 else ''} "
         f"— Total: ${float(total):.2f} — {estado_txt}"
     )
     destino_url = f"{_FRONTEND_URL}/p/{token}"

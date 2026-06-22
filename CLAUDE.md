@@ -138,13 +138,12 @@ En Railway el Procfile corre `alembic upgrade head` antes de iniciar uvicorn, po
 - Usa `pc.comision_por_item` historica, igual que el resto de calculos
 - Se sirve como `StreamingResponse` con `Content-Disposition: attachment`
 
-## Mecanica de "llego" (feature flag)
-- `utils/facturacion.py` define `FACTURAR_SOLO_LLEGADOS` y el helper `items_a_facturar()`
-- Cuando el flag es `False` (estado actual) se factura TODO: subtotal/comision/total cuentan todos los items activos, sin importar `item.llegado`
-- Cuando es `True`, solo se factura lo marcado como `llegado` (el cliente paga unicamente lo que llego)
-- TODOS los calculos pasan los items por `items_a_facturar()`: `calcular_totales()` (pedidos.py), `_calcular()` (export.py), `factura_publica()`/`historial_*` (publico.py), `_calcular_saldo()`/`historial_cliente()` (stats.py)
-- La columna `item.llegado` SIGUE existiendo en BD y se sigue editando desde PedidoDetalle; solo se ignora en los calculos mientras el flag este en False
-- El flag del frontend (`src/config.js`) debe ir SIEMPRE en sincronia con este
+## Items activos / inactivos
+- Cada item tiene `items.activo` (bool, default TRUE). Un item se factura solo si esta activo
+- Los items inactivos quedan guardados en el pedido pero NO cuentan para subtotal/comision/total ni aparecen en la factura del cliente. Sirve para quitar de un pedido lo que el cliente ya no quiere sin borrarlo (es reversible, distinto del soft-delete `deleted_at`)
+- `utils/facturacion.py` expone `items_a_facturar(items)` que filtra `[i for i in items if i.activo]`. TODOS los calculos lo usan: `calcular_totales()` (pedidos.py), `_calcular()` (export.py), `factura_publica()`/`historial_*` (publico.py), `dashboard_stats()`/`historial_cliente()` (stats.py)
+- Nota de naming: `items_activos` en esas funciones = items NO soft-deleted (deleted_at IS NULL); `items_facturables` = los que ademas estan `activo=True`. No confundir
+- Antes existio un flag `FACTURAR_SOLO_LLEGADOS` / campo `llegado`: se reemplazo por `activo` (migracion `6d4f1a2b8e9c`)
 
 ## Comision historica
 - `pedido_clientes.comision_por_item` guarda la comision vigente al momento de agregar el cliente al pedido

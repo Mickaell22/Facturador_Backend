@@ -38,14 +38,14 @@ class ItemCreate(BaseModel):
     link: Optional[str] = None
     articulo: Optional[str] = None
     precio: Optional[Decimal] = None
-    llegado: Optional[bool] = True
+    activo: Optional[bool] = True
 
 class ItemUpdate(BaseModel):
     numero: Optional[int] = None
     link: Optional[str] = None
     articulo: Optional[str] = None
     precio: Optional[Decimal] = None
-    llegado: Optional[bool] = None
+    activo: Optional[bool] = None
     imagen_url: Optional[str] = None
 
 class ItemOut(BaseModel):
@@ -55,7 +55,7 @@ class ItemOut(BaseModel):
     link: Optional[str]
     articulo: Optional[str]
     imagen_url: Optional[str]
-    llegado: bool
+    activo: bool
     precio: Optional[Decimal]
     created_at: datetime
     model_config = {"from_attributes": True}

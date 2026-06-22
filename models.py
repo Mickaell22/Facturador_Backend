@@ -73,7 +73,9 @@ class Item(Base):
     link = Column(Text, nullable=True)
     articulo = Column(String(200), nullable=True)
     imagen_url = Column(Text, nullable=True)
-    llegado = Column(Boolean, default=False)
+    # activo=False: el item queda guardado en el pedido pero no se factura ni
+    # aparece en la factura del cliente (se "desactiva" sin borrarlo).
+    activo = Column(Boolean, nullable=False, server_default=text("true"), default=True)
     precio = Column(Numeric(10, 2), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)

@@ -16,11 +16,11 @@ router = APIRouter(prefix="/pedidos", tags=["pedidos"])
 def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
     comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
-    items_llegados = items_a_facturar(items_activos)
+    items_facturables = items_a_facturar(items_activos)
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
 
-    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
-    comision = Decimal(len(items_llegados)) * comision_unit
+    subtotal = sum(Decimal(str(i.precio or 0)) for i in items_facturables)
+    comision = Decimal(len(items_facturables)) * comision_unit
     total = subtotal + comision
     total_pagado = sum(Decimal(str(p.monto)) for p in pagos_activos)
     saldo = total - total_pagado
@@ -300,7 +300,7 @@ def mover_cliente_a_pedido(pedido_id: int, cliente_id: int, data: MoverClienteRe
                 link=item.link,
                 articulo=item.articulo,
                 imagen_url=item.imagen_url,
-                llegado=item.llegado,
+                activo=item.activo,
                 precio=item.precio,
             ))
 
