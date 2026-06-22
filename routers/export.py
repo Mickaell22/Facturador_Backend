@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from models import Pedido, PedidoCliente
+from utils.facturacion import FACTURAR_SOLO_LLEGADOS, items_a_facturar
 
 router = APIRouter(prefix="/pedidos", tags=["export"])
 
@@ -39,7 +40,7 @@ def _estilo_celda(ws, row, col, value, bold=False, bg=None, align="left", number
 def _calcular(pc: PedidoCliente):
     comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
-    items_llegados = [i for i in items_activos if i.llegado]
+    items_llegados = items_a_facturar(items_activos)
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
     subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
     comision = Decimal(len(items_llegados)) * comision_unit
@@ -150,13 +151,15 @@ def _hoja_cliente(wb: Workbook, pc: PedidoCliente):
     # Filas de items
     for i, item in enumerate(items_activos, 1):
         row = i + 2
-        llegado = "V" if item.llegado else "X"
-        bg_llegado = PAGADO_BG if item.llegado else None
+        # Con la mecanica de "llego" desactivada se factura todo: cada item cuenta.
+        facturado = item.llegado or not FACTURAR_SOLO_LLEGADOS
+        llegado = "V" if facturado else "X"
+        bg_llegado = PAGADO_BG if facturado else None
         _estilo_celda(ws, row, 1, item.numero or i, align="center")
         _estilo_celda(ws, row, 2, item.link or "")
         _estilo_celda(ws, row, 3, item.articulo or "")
         _estilo_celda(ws, row, 4, llegado, bg=bg_llegado, align="center")
-        _estilo_celda(ws, row, 5, float(item.precio or 0) if item.llegado else "", number_format='#,##0.00')
+        _estilo_celda(ws, row, 5, float(item.precio or 0) if facturado else "", number_format='#,##0.00')
 
     # Filas de resumen
     base = len(items_activos) + 3

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, contains_eager, selectinload
 
 from database import get_db
 from models import Cliente, Item, Pago, Pedido, PedidoCliente
+from utils.facturacion import items_a_facturar
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -35,7 +36,7 @@ def dashboard_stats(db: Session = Depends(get_db)):
     for pc in pedido_clientes:
         comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
         items_activos = [i for i in pc.items if i.deleted_at is None]
-        items_llegados = [i for i in items_activos if i.llegado]
+        items_llegados = items_a_facturar(items_activos)
         subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
         comision = Decimal(len(items_llegados)) * comision_unit
         total = subtotal + comision
@@ -88,7 +89,7 @@ def historial_cliente(cliente_id: int, db: Session = Depends(get_db)):
 
     for pc in pedido_clientes:
         comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else cliente.comision_por_item))
-        items_llegados = [i for i in pc.items if i.llegado and i.deleted_at is None]
+        items_llegados = items_a_facturar([i for i in pc.items if i.deleted_at is None])
         subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
         comision = Decimal(len(items_llegados)) * comision_unit
         total = subtotal + comision

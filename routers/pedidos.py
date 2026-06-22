@@ -8,6 +8,7 @@ from decimal import Decimal
 from database import get_db
 from models import Pedido, PedidoCliente, Cliente, Item, Pago
 from schemas import PedidoCreate, PedidoUpdate, PedidoOut, PedidoListOut, PedidoClienteOut, PedidoClienteComisionUpdate, MoverClienteRequest
+from utils.facturacion import items_a_facturar
 
 router = APIRouter(prefix="/pedidos", tags=["pedidos"])
 
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/pedidos", tags=["pedidos"])
 def calcular_totales(pc: PedidoCliente) -> PedidoClienteOut:
     comision_unit = Decimal(str(pc.comision_por_item if pc.comision_por_item is not None else pc.cliente.comision_por_item))
     items_activos = [i for i in pc.items if i.deleted_at is None]
-    items_llegados = [i for i in items_activos if i.llegado]
+    items_llegados = items_a_facturar(items_activos)
     pagos_activos = [p for p in pc.pagos if p.deleted_at is None]
 
     subtotal = sum(Decimal(str(i.precio or 0)) for i in items_llegados)
