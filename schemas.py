@@ -85,6 +85,12 @@ class PedidoClienteComisionUpdate(BaseModel):
 class MoverClienteRequest(BaseModel):
     destino_pedido_id: int
 
+class MoverItemsRequest(BaseModel):
+    # Mueve artículos sueltos al PedidoCliente destino (mismo pedido u otro).
+    # El destino debe existir; los items se reasignan, no se duplican.
+    item_ids: List[int]
+    destino_pc_id: int
+
 class PedidoClienteOut(BaseModel):
     id: int
     cliente_id: int

@@ -56,6 +56,7 @@ backend/
 
 ### Items (requieren JWT)
 - GET/POST `/pedido-clientes/{pc_id}/items`
+- POST `/pedido-clientes/{pc_id}/items/mover` — mueve artículos sueltos al `destino_pc_id` (mismo pedido u otro)
 - PUT/DELETE `/pedido-clientes/{pc_id}/items/{item_id}`
 - POST `/pedido-clientes/{pc_id}/items/{item_id}/imagen`
 
@@ -144,6 +145,13 @@ En Railway el Procfile corre `alembic upgrade head` antes de iniciar uvicorn, po
 - `utils/facturacion.py` expone `items_a_facturar(items)` que filtra `[i for i in items if i.activo]`. TODOS los calculos lo usan: `calcular_totales()` (pedidos.py), `_calcular()` (export.py), `factura_publica()`/`historial_*` (publico.py), `dashboard_stats()`/`historial_cliente()` (stats.py)
 - Nota de naming: `items_activos` en esas funciones = items NO soft-deleted (deleted_at IS NULL); `items_facturables` = los que ademas estan `activo=True`. No confundir
 - Antes existio un flag `FACTURAR_SOLO_LLEGADOS` / campo `llegado`: se reemplazo por `activo` (migracion `6d4f1a2b8e9c`)
+
+## Mover artículos entre clientes/pedidos
+- Endpoint `POST /pedido-clientes/{pc_id}/items/mover` en `routers/items.py` (`mover_items`)
+- Body `MoverItemsRequest`: `item_ids: List[int]` + `destino_pc_id: int`
+- A diferencia de `mover_cliente_a_pedido` (pedidos.py), que mueve al cliente ENTERO y DUPLICA items/pagos en un PedidoCliente nuevo, este endpoint **reasigna** los items: cambia `Item.pedido_cliente_id` al destino. No crea filas nuevas, no toca pagos y conserva precio/imagen/activo. Por eso el `destino_pc_id` debe existir y estar activo (no se autocrea)
+- Los items movidos se renumeran al final del cliente destino (`max(numero)+1`) para no colisionar con su `Item.numero` existente
+- Valida que TODOS los `item_ids` pertenezcan al `pc_id` origen y no esten soft-deleted; si falta alguno, 400
 
 ## Comision historica
 - `pedido_clientes.comision_por_item` guarda la comision vigente al momento de agregar el cliente al pedido

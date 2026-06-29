@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
 from models import Item, PedidoCliente
-from schemas import ItemCreate, ItemUpdate, ItemOut
+from schemas import ItemCreate, ItemUpdate, ItemOut, MoverItemsRequest
 from utils.cloudinary_helper import upload_image
 
 router = APIRouter(prefix="/pedido-clientes", tags=["items"])
@@ -40,6 +41,44 @@ def crear_item(pc_id: int, data: ItemCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.post("/{pc_id}/items/mover")
+def mover_items(pc_id: int, data: MoverItemsRequest, db: Session = Depends(get_db)):
+    if not data.item_ids:
+        raise HTTPException(status_code=400, detail="No se seleccionó ningún artículo")
+    if data.destino_pc_id == pc_id:
+        raise HTTPException(status_code=400, detail="El cliente destino debe ser distinto al de origen")
+
+    _get_pc(pc_id, db)
+    _get_pc(data.destino_pc_id, db)  # valida que el destino exista y esté activo
+
+    ids = set(data.item_ids)
+    items = db.query(Item).filter(
+        Item.id.in_(ids),
+        Item.pedido_cliente_id == pc_id,
+        Item.deleted_at.is_(None),
+    ).all()
+    if len(items) != len(ids):
+        raise HTTPException(
+            status_code=400,
+            detail="Algunos artículos no pertenecen a este cliente o no existen",
+        )
+
+    # Renumerar los movidos para que queden al final del cliente destino,
+    # evitando colisiones de Item.numero dentro del PedidoCliente destino.
+    siguiente = (db.query(func.max(Item.numero)).filter(
+        Item.pedido_cliente_id == data.destino_pc_id,
+        Item.deleted_at.is_(None),
+    ).scalar() or 0) + 1
+
+    for item in sorted(items, key=lambda i: (i.numero or 0, i.id)):
+        item.pedido_cliente_id = data.destino_pc_id
+        item.numero = siguiente
+        siguiente += 1
+
+    db.commit()
+    return {"movidos": len(items), "destino_pc_id": data.destino_pc_id}
 
 
 @router.put("/{pc_id}/items/{item_id}", response_model=ItemOut)

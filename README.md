@@ -115,6 +115,7 @@ Documentación interactiva en `http://localhost:8000/docs`
 | GET | `/pedidos/{id}` | JWT | Ver pedido con totales |
 | POST | `/pedidos/{id}/clientes/{id}` | JWT | Agregar cliente a pedido |
 | POST | `/pedido-clientes/{id}/items` | JWT | Agregar artículo |
+| POST | `/pedido-clientes/{id}/items/mover` | JWT | Mover artículos a otro cliente/pedido |
 | POST | `/pedido-clientes/{id}/pagos` | JWT | Registrar pago |
 | POST | `/pedido-clientes/{id}/items/{id}/imagen` | JWT | Subir imagen de producto |
 | POST | `/pedido-clientes/{id}/pagos/{id}/comprobante` | JWT | Subir comprobante |
